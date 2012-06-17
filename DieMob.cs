@@ -99,7 +99,7 @@ namespace DieMob
             }
             SqlTableCreator SQLcreator = new SqlTableCreator(db, db.GetSqlType() == SqlType.Sqlite ? (IQueryBuilder)new SqliteQueryCreator() : new MysqlQueryCreator());
             var table = new SqlTable("DieMobRegions",
-             new SqlColumn("Region", MySqlDbType.Text) { Primary = true, Unique = true },
+             new SqlColumn("Region", MySqlDbType.Text) { Primary = true, Unique = true, Length = 30 },
              new SqlColumn("WorldID", MySqlDbType.Int32)
             );
             SQLcreator.EnsureExists(table);
