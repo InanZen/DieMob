@@ -97,10 +97,10 @@ namespace DieMob
             {
                 throw new Exception("Invalid storage type");
             }
-            SqlTableCreator SQLcreator = new SqlTableCreator(db, new SqliteQueryCreator());
+            SqlTableCreator SQLcreator = new SqlTableCreator(db, db.GetSqlType() == SqlType.Sqlite ? (IQueryBuilder)new SqliteQueryCreator() : new MysqlQueryCreator());
             var table = new SqlTable("DieMobRegions",
-             new SqlColumn("Region", MySql.Data.MySqlClient.MySqlDbType.Text) { Primary = true, Unique = true },
-             new SqlColumn("WorldID", MySql.Data.MySqlClient.MySqlDbType.Int32)
+             new SqlColumn("Region", MySqlDbType.Text) { Primary = true, Unique = true },
+             new SqlColumn("WorldID", MySqlDbType.Int32)
             );
             SQLcreator.EnsureExists(table);
         }
