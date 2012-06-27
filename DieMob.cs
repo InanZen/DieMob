@@ -37,7 +37,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.15"); }
+            get { return new Version("0.16"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -66,40 +66,12 @@ namespace DieMob
             base.Dispose(disposing);
         }
         private void SetupDb()
-        {
-            if (TShock.Config.StorageType.ToLower() == "sqlite")
-            {
-                string sql = Path.Combine(savepath, "DieMob.sqlite");
-                db = new SqliteConnection(string.Format("uri=file://{0},Version=3", sql));
-            }
-            else if (TShock.Config.StorageType.ToLower() == "mysql")
-            {
-                try
-                {
-                    var hostport = TShock.Config.MySqlHost.Split(':');
-                    db = new MySqlConnection();
-                    db.ConnectionString =
-                        String.Format("Server={0}; Port={1}; Database={2}; Uid={3}; Pwd={4};",
-                                      hostport[0],
-                                      hostport.Length > 1 ? hostport[1] : "3306",
-                                      TShock.Config.MySqlDbName,
-                                      TShock.Config.MySqlUsername,
-                                      TShock.Config.MySqlPassword
-                            );
-                }
-                catch (MySqlException ex)
-                {
-                    Log.Error(ex.ToString());
-                    throw new Exception("MySql not setup correctly");
-                }
-            }
-            else
-            {
-                throw new Exception("Invalid storage type");
-            }
-            SqlTableCreator SQLcreator = new SqlTableCreator(db, db.GetSqlType() == SqlType.Sqlite ? (IQueryBuilder)new SqliteQueryCreator() : new MysqlQueryCreator());
+        {          
+            string sql = Path.Combine(savepath, "DieMob.sqlite");
+            db = new SqliteConnection(string.Format("uri=file://{0},Version=3", sql));            
+            SqlTableCreator SQLcreator = new SqlTableCreator(db,(IQueryBuilder)new SqliteQueryCreator());
             var table = new SqlTable("DieMobRegions",
-             new SqlColumn("Region", MySqlDbType.Text) { Primary = true, Unique = true, Length = 30 },
+             new SqlColumn("Region", MySqlDbType.VarChar) { Primary = true, Unique = true, Length = 30 },
              new SqlColumn("WorldID", MySqlDbType.Int32)
             );
             SQLcreator.EnsureExists(table);
