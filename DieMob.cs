@@ -23,6 +23,7 @@ namespace DieMob
         private static List<Region> RegionList = new List<Region>();
         private static DateTime lastUpdate = DateTime.UtcNow;
         private static Config config;
+        private static RegionManager regionManager;
         public override string Name
         {
             get { return "DieMob Regions"; }
@@ -37,7 +38,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.16"); }
+            get { return new Version("0.17"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -54,8 +55,13 @@ namespace DieMob
             SetupDb();
             ReadConfig();
             GameHooks.Update += OnUpdate;
+            Hooks.GameHooks.PostInitialize += OnPostInit;
             Commands.ChatCommands.Add(new Command("diemob", DieMobCommand, "diemob", "DieMob", "dm"));
 
+        }
+        private void OnPostInit()
+        {
+            regionManager.ReloadAllRegions();
         }
         protected override void Dispose(bool disposing)
         {
@@ -74,7 +80,9 @@ namespace DieMob
              new SqlColumn("Region", MySqlDbType.VarChar) { Primary = true, Unique = true, Length = 30 },
              new SqlColumn("WorldID", MySqlDbType.Int32)
             );
-            SQLcreator.EnsureExists(table);
+            SQLcreator.EnsureExists(table);            
+            regionManager = TShock.Regions;
+            //
         }
 
         class Config
@@ -165,9 +173,18 @@ namespace DieMob
                         {
                             if ((Main.npc[i].friendly && config.KillFriendly) || (!Main.npc[i].friendly && (Main.npc[i].value > 0 || config.KillStatueSpawns)))
                             {
-                                foreach (Region reg in RegionList)
+                                for (int r = RegionList.Count - 1; r >= 0; r--)
                                 {
-                                    if (reg.InArea((int)(Main.npc[i].position.X / 16), (int)(Main.npc[i].position.Y / 16)))
+                                    if (RegionList[r] == null)
+                                    {
+                                        lock (db)
+                                        {
+                                            db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", RegionList[r].Name, Main.worldID);
+                                        }
+                                        RegionList.RemoveAt(r);
+                                        continue;
+                                    }
+                                    if (RegionList[r].InArea((int)(Main.npc[i].position.X / 16), (int)(Main.npc[i].position.Y / 16)))
                                     {
                                         Main.npc[i].netDefaults(0);
                                         TSPlayer.Server.StrikeNPC(i, 99999, 90f, 1);
@@ -196,6 +213,19 @@ namespace DieMob
             }
             else if (args.Parameters.Count > 0 && args.Parameters[0] == "list")
             {
+                for (int r = RegionList.Count - 1; r >= 0; r--)
+                {
+                    if (RegionList[r] == null || regionManager.GetRegionByName(RegionList[r].Name) == null)
+                    {
+                        lock (db)
+                        {
+                            db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", RegionList[r].Name, Main.worldID);
+                        }
+                        RegionList.RemoveAt(r);
+                    }
+                }
+
+
                 int page = 0;
                 if (args.Parameters.Count > 1)
                     int.TryParse(args.Parameters[1], out page);
@@ -212,7 +242,7 @@ namespace DieMob
             }
             else if (args.Parameters.Count > 1)
             {
-                var region = TShock.Regions.GetRegionByName(args.Parameters[1]);
+                var region = regionManager.GetRegionByName(args.Parameters[1]);
                 if (region != null && region.Name != "")
                 {
                     if (args.Parameters[0] == "add")
@@ -265,7 +295,7 @@ namespace DieMob
             {
                 while (reader.Read())
                 {
-                    var region = TShock.Regions.GetRegionByName(reader.Get<string>("Region"));
+                    var region = regionManager.GetRegionByName(reader.Get<string>("Region"));
                     if (region != null && region.Name != "")
                         RegionList.Add(region);
                 }
