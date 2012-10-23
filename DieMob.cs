@@ -215,7 +215,8 @@ namespace DieMob
             {
                 for (int r = RegionList.Count - 1; r >= 0; r--)
                 {
-                    if (RegionList[r] == null || regionManager.GetRegionByName(RegionList[r].Name) == null)
+                    var regManReg = regionManager.GetRegionByName(RegionList[r].Name);
+                    if (RegionList[r] == null || regManReg == null || regManReg.Name == "")
                     {
                         lock (db)
                         {
@@ -295,9 +296,12 @@ namespace DieMob
             {
                 while (reader.Read())
                 {
-                    var region = regionManager.GetRegionByName(reader.Get<string>("Region"));
+                    var regionName = reader.Get<string>("Region");
+                    var region = regionManager.GetRegionByName(regionName);
                     if (region != null && region.Name != "")
                         RegionList.Add(region);
+                    else
+                        db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", regionName, Main.worldID);
                 }
                 reader.Dispose();
             }
