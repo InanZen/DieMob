@@ -14,11 +14,17 @@ using Newtonsoft.Json;
 
 namespace DieMob
 {
+    public enum RegionType
+    {
+        Kill = 0,
+        Repel = 1,
+        Passive = 2
+    }
     public class DieMobRegion
     {
         public string RegionName;
         public Region TSRegion = null;
-        public bool RepelMobs = false;
+        public RegionType Type = RegionType.Kill;
         public Dictionary<int, int> ReplaceMobs = new Dictionary<int,int>();
         public bool AffectFriendlyNPCs = false;
         public bool AffectStatueSpawns= false;
@@ -47,7 +53,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.20"); }
+            get { return new Version("0.21"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -92,7 +98,7 @@ namespace DieMob
              new SqlColumn("AffectFriendlyNPCs", MySqlDbType.Int32),
              new SqlColumn("AffectStatueSpawns", MySqlDbType.Int32),
              new SqlColumn("ReplaceMobs", MySqlDbType.Text),
-             new SqlColumn("RepelMobs", MySqlDbType.Int32)
+             new SqlColumn("Type", MySqlDbType.Int32)
             );
             SQLcreator.EnsureExists(table);            
             regionManager = TShock.Regions;
@@ -202,7 +208,7 @@ namespace DieMob
                                             npc.SetDefaults(Region.ReplaceMobs[npc.type]);
                                             NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, "", i);
                                         }
-                                        else if (Region.RepelMobs)
+                                        else if (Region.Type == RegionType.Repel)
                                         {
                                             Rectangle area = Region.TSRegion.Area;
                                             int yDir = -10;
@@ -214,7 +220,7 @@ namespace DieMob
                                             npc.velocity = new Vector2(xDir * config.RepelPowerModifier, yDir * config.RepelPowerModifier);
                                             NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, "", i);
                                         }
-                                        else
+                                        else if (Region.Type == RegionType.Kill)
                                         {
                                             Main.npc[i].netDefaults(0);
                                             TSPlayer.Server.StrikeNPC(i, 99999, 90f, 1);
@@ -278,10 +284,9 @@ namespace DieMob
                 else
                 {
                     args.Player.SendMessage(String.Format("DieMob region: {0}", args.Parameters[1]), Color.DarkOrange);
-                    args.Player.SendMessage(String.Format("Type: {0}", reg.RepelMobs ? "Repel mobs" : "Kill mobs"), Color.LightSalmon);
+                    args.Player.SendMessage(String.Format("Type: {0}", reg.Type.ToString()), Color.LightSalmon);
                     args.Player.SendMessage(String.Format("Affects friendly NPCs: {0}", reg.AffectFriendlyNPCs ? "True" : "False"), Color.LightSalmon);
                     args.Player.SendMessage(String.Format("Affects statue spawned mobs: {0}", reg.AffectStatueSpawns? "True" : "False"), Color.LightSalmon);
-                    args.Player.SendMessage(String.Format("Affects friendly NPCs: {0}", reg.AffectFriendlyNPCs ? "True" : "False"), Color.LightSalmon);
                     args.Player.SendMessage(String.Format("Replacing {0} mobs. Type '/dm replacemobsinfo RegionName [pageNum]' to get a list.", reg.ReplaceMobs.Count), Color.LightSalmon);                        
                 }
                 return;
@@ -327,16 +332,21 @@ namespace DieMob
                         {
                             case "type":
                                 {
-                                    if (args.Parameters.Count > 3 && (args.Parameters[3].ToLower() == "kill" || args.Parameters[3].ToLower() == "repel"))
+                                    if (args.Parameters.Count > 3 && (args.Parameters[3].ToLower() == "kill" || args.Parameters[3].ToLower() == "repel" || args.Parameters[3].ToLower() == "passive"))
                                     {
                                         if (args.Parameters[3].ToLower() == "repel")
                                         {
-                                            region.RepelMobs = true;
+                                            region.Type = RegionType.Repel;
                                             args.Player.SendMessage(String.Format("Region {0} is now repeling mobs", region.TSRegion.Name), Color.LightSalmon);
+                                        }
+                                        else if (args.Parameters[3].ToLower() == "passive")
+                                        {
+                                            region.Type = RegionType.Passive;
+                                            args.Player.SendMessage(String.Format("Region {0} is now passive", region.TSRegion.Name), Color.LightSalmon);
                                         }
                                         else
                                         {
-                                            region.RepelMobs = false;
+                                            region.Type = RegionType.Kill;
                                             args.Player.SendMessage(String.Format("Region {0} is now killing mobs", region.TSRegion.Name), Color.LightSalmon);
                                         }
                                         Diemob_Update(region);
@@ -415,7 +425,7 @@ namespace DieMob
                 }
                 args.Player.SendMessage("/dm mod RegionName option arguments", Color.DarkOrange);
                 args.Player.SendMessage("Options:", Color.LightSalmon);
-                args.Player.SendMessage("type - args: kill [default] / repel", Color.LightSalmon);
+                args.Player.SendMessage("type - args: kill [default] / repel / passive", Color.LightSalmon);
                 args.Player.SendMessage("affectfriendlynpcs - args: true / false [default]", Color.LightSalmon);
                 args.Player.SendMessage("affectstatuespawns - args: true / false [default]", Color.LightSalmon);
                 args.Player.SendMessage("replacemobs - args: add fromMobID toMobID / del fromMobID", Color.LightSalmon);
@@ -482,7 +492,7 @@ namespace DieMob
                     var region = regionManager.GetRegionByName(regionName);
                     if (region != null && region.Name != "")
                     {
-                        RegionList.Add(new DieMobRegion() { TSRegion = region, RegionName = region.Name, AffectFriendlyNPCs = reader.Get<bool>("AffectFriendlyNPCs"), AffectStatueSpawns = reader.Get<bool>("AffectStatueSpawns"), ReplaceMobs = JsonConvert.DeserializeObject<Dictionary<int, int>>(reader.Get<string>("ReplaceMobs")), RepelMobs = reader.Get<bool>("RepelMobs") });
+                        RegionList.Add(new DieMobRegion() { TSRegion = region, RegionName = region.Name, AffectFriendlyNPCs = reader.Get<bool>("AffectFriendlyNPCs"), AffectStatueSpawns = reader.Get<bool>("AffectStatueSpawns"), ReplaceMobs = JsonConvert.DeserializeObject<Dictionary<int, int>>(reader.Get<string>("ReplaceMobs")), Type = (RegionType)reader.Get<int>("Type") });
                     }
                     else
                         db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", regionName, Main.worldID);
@@ -494,7 +504,7 @@ namespace DieMob
         {
             lock (db)
             {
-                db.Query("INSERT INTO DieMobRegions (Region, WorldID, AffectFriendlyNPCs, AffectStatueSpawns, RepelMobs, ReplaceMobs) VALUES (@0, @1, 0, 0, 0, @2)", name.ToLower(), Main.worldID, JsonConvert.SerializeObject(new Dictionary<int,int>()));
+                db.Query("INSERT INTO DieMobRegions (Region, WorldID, AffectFriendlyNPCs, AffectStatueSpawns, Type, ReplaceMobs) VALUES (@0, @1, 0, 0, 0, @2)", name.ToLower(), Main.worldID, JsonConvert.SerializeObject(new Dictionary<int,int>()));
             }
             return true;
         }
@@ -520,7 +530,7 @@ namespace DieMob
         {
             lock (db)
             {
-                db.Query("UPDATE DieMobRegions SET AffectFriendlyNPCs = @2, AffectStatueSpawns = @3, RepelMobs = @4, ReplaceMobs = @5 where Region = @0 AND WorldID = @1", region.TSRegion.Name.ToLower(), Main.worldID, region.AffectFriendlyNPCs, region.AffectStatueSpawns, region.RepelMobs, JsonConvert.SerializeObject(region.ReplaceMobs));
+                db.Query("UPDATE DieMobRegions SET AffectFriendlyNPCs = @2, AffectStatueSpawns = @3, Type = @4, ReplaceMobs = @5 where Region = @0 AND WorldID = @1", region.TSRegion.Name.ToLower(), Main.worldID, region.AffectFriendlyNPCs, region.AffectStatueSpawns, (int)region.Type, JsonConvert.SerializeObject(region.ReplaceMobs));
             }
         }
         private static DieMobRegion GetRegionByName(string name)
