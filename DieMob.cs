@@ -53,7 +53,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.21"); }
+            get { return new Version("0.22"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -480,58 +480,41 @@ namespace DieMob
         private static void DieMob_Read()
         {
             QueryResult reader;
-            lock (db)
+
+            reader = db.QueryReader("Select * from DieMobRegions WHERE WorldID = @0", Main.worldID);
+            while (reader.Read())
             {
-                reader = db.QueryReader("Select * from DieMobRegions WHERE WorldID = @0", Main.worldID);
-            }
-            lock (RegionList)
-            {
-                while (reader.Read())
-                {                    
-                    var regionName = reader.Get<string>("Region");
-                    var region = regionManager.GetRegionByName(regionName);
-                    if (region != null && region.Name != "")
-                    {
-                        RegionList.Add(new DieMobRegion() { TSRegion = region, RegionName = region.Name, AffectFriendlyNPCs = reader.Get<bool>("AffectFriendlyNPCs"), AffectStatueSpawns = reader.Get<bool>("AffectStatueSpawns"), ReplaceMobs = JsonConvert.DeserializeObject<Dictionary<int, int>>(reader.Get<string>("ReplaceMobs")), Type = (RegionType)reader.Get<int>("Type") });
-                    }
-                    else
-                        db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", regionName, Main.worldID);
+                var regionName = reader.Get<string>("Region");
+                var region = regionManager.GetRegionByName(regionName);
+                if (region != null && region.Name != "")
+                {
+                    RegionList.Add(new DieMobRegion() { TSRegion = region, RegionName = region.Name, AffectFriendlyNPCs = reader.Get<bool>("AffectFriendlyNPCs"), AffectStatueSpawns = reader.Get<bool>("AffectStatueSpawns"), ReplaceMobs = JsonConvert.DeserializeObject<Dictionary<int, int>>(reader.Get<string>("ReplaceMobs")), Type = (RegionType)reader.Get<int>("Type") });
                 }
-                reader.Dispose();
+                else
+                    db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", regionName, Main.worldID);
             }
+            reader.Dispose();
         }
         private static bool DieMob_Add(string name)
-        {
-            lock (db)
-            {
-                db.Query("INSERT INTO DieMobRegions (Region, WorldID, AffectFriendlyNPCs, AffectStatueSpawns, Type, ReplaceMobs) VALUES (@0, @1, 0, 0, 0, @2)", name.ToLower(), Main.worldID, JsonConvert.SerializeObject(new Dictionary<int,int>()));
-            }
+        {           
+            db.Query("INSERT INTO DieMobRegions (Region, WorldID, AffectFriendlyNPCs, AffectStatueSpawns, Type, ReplaceMobs) VALUES (@0, @1, 0, 0, 0, @2)", name.ToLower(), Main.worldID, JsonConvert.SerializeObject(new Dictionary<int,int>()));
             return true;
         }
         private static void DieMob_Delete(String name)
         {
-            lock (db)
+            db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", name.ToLower(), Main.worldID);
+            for (int i = RegionList.Count - 1; i >= 0; i--)
             {
-                db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", name.ToLower(), Main.worldID);
-            }
-            lock (RegionList)
-            {
-                for (int i = RegionList.Count - 1; i >= 0; i--)
+                if (RegionList[i].RegionName.ToLower() == name.ToLower())
                 {
-                    if (RegionList[i].RegionName.ToLower() == name.ToLower())
-                    {
-                        RegionList.RemoveAt(i);
-                        break;
-                    }
+                    RegionList.RemoveAt(i);
+                    break;
                 }
             }
         }
         private static void Diemob_Update(DieMobRegion region)
         {
-            lock (db)
-            {
-                db.Query("UPDATE DieMobRegions SET AffectFriendlyNPCs = @2, AffectStatueSpawns = @3, Type = @4, ReplaceMobs = @5 where Region = @0 AND WorldID = @1", region.TSRegion.Name.ToLower(), Main.worldID, region.AffectFriendlyNPCs, region.AffectStatueSpawns, (int)region.Type, JsonConvert.SerializeObject(region.ReplaceMobs));
-            }
+            db.Query("UPDATE DieMobRegions SET AffectFriendlyNPCs = @2, AffectStatueSpawns = @3, Type = @4, ReplaceMobs = @5 where Region = @0 AND WorldID = @1", region.TSRegion.Name.ToLower(), Main.worldID, region.AffectFriendlyNPCs, region.AffectStatueSpawns, (int)region.Type, JsonConvert.SerializeObject(region.ReplaceMobs));
         }
         private static DieMobRegion GetRegionByName(string name)
         {
