@@ -38,7 +38,7 @@ namespace DieMob
         private static List<DieMobRegion> RegionList = new List<DieMobRegion>();
         private static DateTime lastUpdate = DateTime.UtcNow;
         private static Config config;
-        private static RegionManager regionManager;
+       // private static RegionManager regionManager;
         public override string Name
         {
             get { return "DieMob Regions"; }
@@ -53,7 +53,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.22"); }
+            get { return new Version("0.23"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -70,20 +70,14 @@ namespace DieMob
             SetupDb();
             ReadConfig();
             GameHooks.Update += OnUpdate;
-            Hooks.GameHooks.PostInitialize += OnPostInit;
             Commands.ChatCommands.Add(new Command("diemob", DieMobCommand, "diemob", "DieMob", "dm"));
 
-        }
-        private void OnPostInit()
-        {
-            regionManager.ReloadAllRegions();
         }
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 GameHooks.Update -= OnUpdate;
-                Hooks.GameHooks.PostInitialize -= OnPostInit;
             }
             base.Dispose(disposing);
         }
@@ -100,8 +94,7 @@ namespace DieMob
              new SqlColumn("ReplaceMobs", MySqlDbType.Text),
              new SqlColumn("Type", MySqlDbType.Int32)
             );
-            SQLcreator.EnsureExists(table);            
-            regionManager = TShock.Regions;
+            SQLcreator.EnsureExists(table);
             //
         }
 
@@ -186,10 +179,8 @@ namespace DieMob
                     {
                         if (RegionList[r].TSRegion == null)
                         {
-                            lock (db)
-                            {
-                                db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", RegionList[r].TSRegion.Name, Main.worldID);
-                            }
+                            
+                            db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", RegionList[r].TSRegion.Name, Main.worldID);                            
                             RegionList.RemoveAt(r);
                             continue;
                         }
@@ -252,13 +243,12 @@ namespace DieMob
             {
                 for (int r = RegionList.Count - 1; r >= 0; r--)
                 {
-                    var regManReg = regionManager.GetRegionByName(RegionList[r].TSRegion.Name);
+                    var regManReg = TShock.Regions.GetRegionByName(RegionList[r].TSRegion.Name);
                     if (RegionList[r].TSRegion == null || regManReg == null || regManReg.Name == "")
                     {
-                        lock (db)
-                        {
+                      
                             db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", RegionList[r].RegionName, Main.worldID);
-                        }
+                        
                         RegionList.RemoveAt(r);
                     }
                 }
@@ -433,7 +423,7 @@ namespace DieMob
             }
             else if (args.Parameters.Count > 1)
             {
-                var region = regionManager.GetRegionByName(args.Parameters[1]);
+                var region = TShock.Regions.GetRegionByName(args.Parameters[1]);
                 if (region != null && region.Name != "")
                 {
                     if (args.Parameters[0].ToLower() == "add")
@@ -482,18 +472,23 @@ namespace DieMob
             QueryResult reader;
 
             reader = db.QueryReader("Select * from DieMobRegions WHERE WorldID = @0", Main.worldID);
+            List<string> obsoleteRegions = new List<string>();
             while (reader.Read())
             {
                 var regionName = reader.Get<string>("Region");
-                var region = regionManager.GetRegionByName(regionName);
+                var region = TShock.Regions.GetRegionByName(regionName);
                 if (region != null && region.Name != "")
                 {
                     RegionList.Add(new DieMobRegion() { TSRegion = region, RegionName = region.Name, AffectFriendlyNPCs = reader.Get<bool>("AffectFriendlyNPCs"), AffectStatueSpawns = reader.Get<bool>("AffectStatueSpawns"), ReplaceMobs = JsonConvert.DeserializeObject<Dictionary<int, int>>(reader.Get<string>("ReplaceMobs")), Type = (RegionType)reader.Get<int>("Type") });
                 }
                 else
-                    db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", regionName, Main.worldID);
-            }
+                    obsoleteRegions.Add(regionName);
+            }            
             reader.Dispose();
+            foreach (string region in obsoleteRegions)
+            {
+                db.Query("Delete from DieMobRegions where Region = @0 AND WorldID = @1", region, Main.worldID);
+            }            
         }
         private static bool DieMob_Add(string name)
         {           
