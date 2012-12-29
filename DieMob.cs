@@ -53,7 +53,7 @@ namespace DieMob
         }
         public override Version Version
         {
-            get { return new Version("0.23"); }
+            get { return new Version("0.24"); }
         }
         public DieMobMain(Main game)
             : base(game)
@@ -190,13 +190,13 @@ namespace DieMob
                             if (Main.npc[i].active)
                             {
                                 NPC npc = Main.npc[i];
-                                if ((npc.friendly && Region.AffectFriendlyNPCs) || (!npc.friendly && (npc.value > 0 || Region.AffectStatueSpawns || config.MobsWith0ValueButNotStatueSpawn.Contains(npc.type))))
+                                if ((npc.friendly && Region.AffectFriendlyNPCs) || (!npc.friendly && (npc.value > 0 || Region.AffectStatueSpawns || config.MobsWith0ValueButNotStatueSpawn.Contains(npc.netID))))
                                 {
                                     if (Region.TSRegion.InArea((int)(Main.npc[i].position.X / 16), (int)(Main.npc[i].position.Y / 16)))
                                     {
-                                        if (Region.ReplaceMobs.ContainsKey(npc.type))
+                                        if (Region.ReplaceMobs.ContainsKey(npc.netID))
                                         {
-                                            npc.SetDefaults(Region.ReplaceMobs[npc.type]);
+                                            npc.SetDefaults(Region.ReplaceMobs[npc.netID]);
                                             NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, "", i);
                                         }
                                         else if (Region.Type == RegionType.Repel)
