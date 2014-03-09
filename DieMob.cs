@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Data;
 using Terraria;
-using Hooks;
+using TerrariaApi.Server;
 using TShockAPI;
 using TShockAPI.DB;
 using Mono.Data.Sqlite;
@@ -29,7 +29,7 @@ namespace DieMob
         public bool AffectFriendlyNPCs = false;
         public bool AffectStatueSpawns= false;
     }
-    [APIVersion(1, 12)]
+    [ApiVersion(1, 15)]
     public class DieMobMain : TerrariaPlugin
     {
         private static IDbConnection db;
@@ -69,7 +69,7 @@ namespace DieMob
             }
             SetupDb();
             ReadConfig();
-            GameHooks.Update += OnUpdate;
+            ServerApi.Hooks.GameUpdate.Register(this, OnUpdate);
             Commands.ChatCommands.Add(new Command("diemob", DieMobCommand, "diemob", "DieMob", "dm"));
 
         }
@@ -77,7 +77,7 @@ namespace DieMob
         {
             if (disposing)
             {
-                GameHooks.Update -= OnUpdate;
+                ServerApi.Hooks.GameUpdate.Deregister(this, OnUpdate);
             }
             base.Dispose(disposing);
         }
@@ -163,7 +163,7 @@ namespace DieMob
             Console.WriteLine("Loading DieMobRegions...");
             DieMob_Read();
         }
-        private void OnUpdate()
+        private void OnUpdate(EventArgs args)
         {
             if ((DateTime.UtcNow - lastUpdate).TotalMilliseconds >= config.UpdateInterval)
             {
